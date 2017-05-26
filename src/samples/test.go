@@ -9,10 +9,13 @@ import (
 	. "fmt"
 	"io"
 	"math/rand"
+	"os"
 	"os/exec"
+	"os/signal"
 	"reflect"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -98,10 +101,6 @@ func T6() {
 	Println(s)
 	s = strings.Replace(s, "~", "!=", -1)
 	Println(s)
-}
-
-func Nobid(args ...interface{}) {
-	Println(args...)
 }
 
 func T7() {
@@ -210,6 +209,82 @@ func T14() {
 	}
 }
 
+func T15() {
+	sigRec := make(chan os.Signal, 1)
+	sigs := []os.Signal{syscall.SIGINT}
+	signal.Notify(sigRec, sigs...)
+	var i int
+	for sig := range sigRec {
+		Println("recieve:", sig)
+		i++
+		if i > 3 {
+			break
+		}
+	}
+
+	signal.Stop(sigRec)
+	close(sigRec)
+
+	x := os.Stdin
+	b := bufio.NewReader(x)
+	Println(b.ReadString('\n'))
+}
+
+func T16() {
+	m := map[string]int{
+		"one":   1,
+		"two":   2,
+		"three": 3,
+	}
+
+	var a, b, c int
+	for i := 0; i < 10000; i++ {
+		for k, _ := range m {
+			switch k {
+			case "one":
+				a++
+			case "two":
+				b++
+			case "three":
+				c++
+			}
+			break
+		}
+	}
+
+	Println(a, b, c)
+}
+
+func T17() {
+	for i := 0; i < 5; i++ {
+		Println(Random(15, 20))
+	}
+}
+
+func T18() {
+	var (
+		a float64 = 1.23456
+		b float64 = 1.23456
+	)
+	Printf("%t, %8.8f\n", a == b, a)
+}
+
+func Random(args ...int) int {
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
+	switch len(args) {
+	case 0:
+		return r.Int()
+	case 1:
+		return r.Intn(args[0])
+	case 2:
+		return r.Intn(args[1]-args[0]) + args[0]
+	default:
+		return -1
+	}
+}
+
 func md5IfNonEmpty(s string) string {
 	if s == "" {
 		return ""
@@ -231,4 +306,8 @@ func GetRandomString(count int) string {
 	}
 	return string(result)
 
+}
+
+func Nobid(args ...interface{}) {
+	Println(args...)
 }
