@@ -8,6 +8,8 @@ import (
 	"errors"
 	. "fmt"
 	"io"
+	"log"
+	"math"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -15,6 +17,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -262,11 +265,32 @@ func T17() {
 }
 
 func T18() {
-	var (
-		a float64 = 1.23456
-		b float64 = 1.23456
-	)
-	Printf("%t, %8.8f\n", a == b, a)
+	//var (
+	//a float64 = 1.234563224
+	//b float64 = 1.234563224
+	//)
+	//Printf("%t, %8.8f %8.8f\n", a+0.004 == b+0.004, a+0.004, b+0.004)
+	//for i := 0; i < 100000; i++ {
+	//a += 0.01
+	//b += 0.01
+	//}
+	//Printf("%t, %8.8f %8.8f\n", a == b, a, b)
+
+	var c float64 = 0
+	var d float64 = 100
+
+	for i := 0; i < 5000; i++ {
+		c += .01
+	}
+	for i := 0; i < 5000; i++ {
+		d -= .01
+	}
+	Println(c, d, c == d, IsEqual(c, d), IsEqual(d, c))
+}
+
+func T19() {
+	s := "CCPUID_704=xxxxxxxxxxxx; CCPUID_707=aaaaa; Idea-69579d97=9e592d64-3dce-4400-94bb-020e23b90c4b; V=5911167682205782503"
+	Println(strings.Index(s, "CCPUID_707="))
 }
 
 func Random(args ...int) int {
@@ -310,4 +334,108 @@ func GetRandomString(count int) string {
 
 func Nobid(args ...interface{}) {
 	Println(args...)
+}
+
+const MIN = 0.000001
+
+func IsEqual(a, b float64) bool {
+	return math.Dim(a, b) < MIN
+}
+func T20() {
+	t := time.Now()
+
+	f, e := os.OpenFile("/Users/cye/tmp/t.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if e != nil {
+		log.Panic(e)
+	}
+
+	var m sync.Mutex
+	s := []string{"aaaaaaaaaaaaaaaaaaaaaaaaaaaa\n", "bbbbbbbbbbbbbbbbbbbbbbbbbb\n", "ccccccccccccccccccccccc\n"}
+	for i := 0; i < 100000; i++ {
+		go func() {
+			for _, v := range s {
+				go func(s string) {
+					m.Lock()
+					defer m.Unlock()
+					n, e := f.WriteString(s)
+					if e != nil {
+						log.Panic(n, e)
+					}
+				}(v)
+			}
+		}()
+	}
+	Println(time.Since(t))
+}
+
+func T21() {
+	t := time.Now()
+	var w *bufio.Writer
+
+	chs := make(chan string)
+	f, e := os.OpenFile("/Users/cye/tmp/t.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if e != nil {
+		log.Panic(e)
+	}
+	//w = bufio.NewWriter(f)
+	w = bufio.NewWriterSize(f, 9500)
+
+	//var m sync.Mutex
+	go func() {
+		w.WriteString(<-chs)
+	}()
+	s := []string{"aaaaaaaaaaaaaaaaaaaaaaaaaaaa\n", "bbbbbbbbbbbbbbbbbbbbbbbbbb\n", "ccccccccccccccccccccccc\n"}
+	for i := 0; i < 100000; i++ {
+		go func() {
+			for _, v := range s {
+				go func(s string) {
+					//m.Lock()
+					//defer m.Unlock()
+					chs <- s
+					//n, e := w.WriteString(s)
+					//n, e := f.Write([]byte(s))
+					if e != nil {
+						log.Panic(e)
+					}
+				}(v)
+			}
+		}()
+	}
+	w.Flush()
+	Println(time.Since(t))
+}
+
+func T22() {
+	m := make(map[string]interface{})
+	m["one"] = 1
+	if v, ok := m["one"].(int); ok {
+		Println(v, ok)
+	}
+	var v interface{}
+	_ = v.(string)
+	//if a, ok := v.(string); ok {
+	//}
+}
+
+func T23() {
+	//b1 := bytes.NewBuffer(nil)
+	//b2 := bufio.NewReadWriter(b1)
+	//net.Conn
+}
+
+func T24() {
+	type t struct {
+		s string
+	}
+	m := make(map[int]*t)
+	m[1] = &t{s: "sss"}
+	Printf("%+v \n", m[1].s)
+	for _, v := range m {
+		func(x *t) {
+			y := x
+			y.s = "xxx1"
+		}(v)
+	}
+
+	Printf("%+v \n", m[1].s)
 }
