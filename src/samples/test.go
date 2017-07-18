@@ -5,21 +5,30 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	. "fmt"
 	"io"
 	"log"
 	"math"
 	"math/rand"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
 	"reflect"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/astaxie/beego/logs"
+	"github.com/davecgh/go-spew/spew"
+	jsoniter "github.com/json-iterator/go"
 )
 
 func T1() {
@@ -438,4 +447,431 @@ func T24() {
 	}
 
 	Printf("%+v \n", m[1].s)
+}
+
+func T25() {
+	type x struct {
+		s string
+		i int
+	}
+
+	type t struct {
+		f func(*x)
+	}
+
+	tf := func(i int, s string) *t {
+		return &t{
+			func(x *x) {
+				x.s = s
+				x.i = i
+			},
+		}
+	}
+
+	tt := tf(3, "three")
+
+	tx := new(x)
+	tt.f(tx)
+	Println(tx)
+}
+
+func T26() {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		wg.Done()
+		go func() {
+			time.Sleep(time.Second)
+			Println("hahah")
+			wg.Done()
+		}()
+		Println("end1")
+	}()
+
+	wg.Wait()
+	Println("end")
+}
+
+func T27() {
+	//rune.New()
+	//byte.Rune()
+	//bytes.Runes()
+}
+
+func T28() {
+	//bm, err := cache.NewCache()
+	logs.SetLogger("console")
+	logs.EnableFuncCallDepth(true)
+	logs.SetLogFuncCallDepth(3)
+
+	logs.Debug("Hello beeog log!")
+	logs.Info("info")
+	logs.Warn("warn")
+	logs.Warning("warning")
+	logs.Error("error")
+
+	log.SetFlags(8)
+	log.Println("hello log")
+	log.Panic("aaa")
+}
+
+func T29() {
+	//name, e := os.Hostname()
+	//if e != nil {
+	//logs.Error(e)
+	//}
+
+	//addrs, e := net.LookupHost(name)
+	//if e != nil {
+	//logs.Error(e)
+	//}
+
+	//addrs, e := net.InterfaceAddrs()
+	//if e != nil {
+	//logs.Error(e)
+	//}
+
+	//ifaces, _ := net.Interfaces()
+	//// handle err
+	//for _, i := range ifaces {
+	//addrs, _ := i.Addrs()
+	//// handle err
+	//for _, addr := range addrs {
+	//var ip net.IP
+	//switch v := addr.(type) {
+	//case *net.IPNet:
+	//ip = v.IP
+	//if ip.To4() != nil && ip.String() != "127.0.0.1" {
+	//logs.Debug(ip.String())
+	//}
+	//case *net.IPAddr:
+	//ip = v.IP
+	//}
+	//}
+
+	//}
+
+	logs.Debug(GetLocalIP())
+}
+
+// GetLocalIP returns the non loopback local IP of the host
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+
+			}
+
+		}
+
+	}
+	return ""
+
+}
+
+func T30() {
+	m := make(map[string]*int64)
+	var i int64 = 1
+	m["one"] = &i
+
+	var wg sync.WaitGroup
+	wg.Add(100)
+	for i := 0; i < 100; i++ {
+		go func() {
+			defer wg.Done()
+			atomic.AddInt64(m["one"], int64(1))
+		}()
+	}
+	wg.Wait()
+	Println(*m["one"])
+}
+
+func T31() {
+	m := make(map[string]*int64)
+	var i int64 = 1
+	m["one"] = &i
+
+	var wg sync.WaitGroup
+	wg.Add(100)
+	for i := 0; i < 100; i++ {
+		go func(i int) {
+			defer wg.Done()
+			atomic.AddInt64(m["one"], int64(1))
+			x := strconv.Itoa(i % 10)
+			if _, ok := m[x]; ok {
+				atomic.AddInt64(m[x], int64(1))
+			} else {
+				y := int64(i)
+				m[x] = &y
+			}
+		}(i)
+	}
+	wg.Wait()
+	for k, v := range m {
+		Println(k, *v)
+	}
+}
+
+func T32() {
+	m := make(map[string]*int64)
+
+	var l sync.RWMutex
+	var wg sync.WaitGroup
+	wg.Add(100)
+	for i := 0; i < 100; i++ {
+		go func(i int) {
+			defer wg.Done()
+			x := strconv.Itoa(i % 10)
+			l.RLock()
+			if _, ok := m[x]; ok {
+				atomic.AddInt64(m[x], int64(1))
+			} else {
+				l.Lock()
+				y := int64(0)
+				m[x] = &y
+				l.Unlock()
+			}
+			l.RUnlock()
+		}(i)
+	}
+	wg.Wait()
+	for k, v := range m {
+		Println("a", k, *v)
+	}
+}
+
+type t struct {
+	p int
+}
+
+type it interface {
+	setp(int)
+}
+
+func (t t) setp(p int) {
+	t.p = p
+}
+
+func (t t) getp() int {
+	return t.p
+}
+
+func T33() {
+	t := new(t)
+	t.setp(4)
+
+	t1 := *t
+	t1.setp(9)
+
+	t2 := t
+	t2.setp(19)
+	Println(t.p, t1.p)
+}
+
+func T34() {
+	type t struct {
+		i int
+	}
+
+	m := make(map[*t]string)
+	s := &t{3}
+	Println(s)
+
+	m[s] = "aaa"
+	Println(m)
+
+	s.i = 5
+	Println(m)
+}
+
+func T35() {
+	type t struct {
+		i int
+	}
+
+	s := t{3}
+	m := t{3}
+	Println(s == m) // true
+
+	s1 := &t{3}
+	m1 := &t{3}
+	Println(s1 == m1) // false
+
+	s2 := &t{3}
+	m2 := s2
+	Println(s2 == m2) // true
+}
+
+func T36() {
+	type t struct {
+		i int
+	}
+
+	m := make(map[t]string)
+
+	s := t{1}
+	m[s] = "one"
+
+	m[s] = "two"
+}
+
+func T37() {
+	type t struct {
+		i int
+	}
+
+	m := make(map[int]t)
+	m[1] = t{2}
+	//m[1].i = 3
+	Println(m)
+}
+
+func T38() {
+	switch "1" {
+	case "1":
+		Println("1")
+		fallthrough
+	case "2":
+		Println("2")
+		Println("2")
+	}
+}
+
+func T39() {
+	t := new(t)
+	var i it
+	i = t
+	i.setp(1)
+}
+
+var jsonstr string = `
+{
+	"id": "a01-04rH-02FSRH-0_B-1IP",
+    "app": {
+        "content": {
+            "keywords": "",
+            "title": "xxx160220",
+            "ext": {
+                "channel": 31,
+                "usr": "113077370",
+                "cs": "110319999",
+                "s": "252245"
+            }
+        },
+        "name": "xxx"
+    }
+}
+`
+
+type jsonStruct struct {
+	Id  string
+	App *app
+}
+
+type app struct {
+	Content *content
+	Name    string
+}
+
+type content struct {
+	Keywords string
+	Title    string
+	Ext      *ext
+}
+
+type ext struct {
+	Channel int    `json:"channel"`
+	Usr     string `json:"usr"`
+	Cs      string `json:"cs"`
+	Vid     string `jsong:"vid"`
+	S       string `json:"s"`
+}
+
+func T40() {
+	j := new(jsonStruct)
+	e := json.Unmarshal([]byte(jsonstr), j)
+	if e != nil {
+		Println(e)
+	}
+	//spew.Dump(j)
+}
+
+func T41() {
+	j := new(jsonStruct)
+	e := jsoniter.Unmarshal([]byte(jsonstr), j)
+	if e != nil {
+		Println(e)
+	}
+	spew.Dump(j)
+}
+
+func T42() {
+	r1 := []int{1, 2, 3, 5, 7}
+	r2 := []int{1, 3, 2, 5, 8}
+loopppp:
+	for i, j := range r1 {
+		for k, v := range r2 {
+			if j == v {
+				Println(j, v)
+				r1 = append(r1[:i], r1[(i+1):]...)
+				r2 = append(r2[:k], r2[(k+1):]...)
+				goto loopppp
+			}
+		}
+	}
+
+	if len(r1) == 0 && len(r2) == 0 {
+		Println("OK")
+	}
+}
+
+func T43() {
+	r1 := []int{1, 2, 3, 5, 7}
+	r2 := []int{1, 3, 2, 5, 8}
+	si1 := sort.IntSlice(r1)
+	si2 := sort.IntSlice(r2)
+	si1.Sort()
+	si2.Sort()
+	Println(si1, si2)
+}
+
+func T44() {
+	type T struct {
+		a *string
+	}
+
+	s := "aaa"
+	t := &T{}
+	t.a = &s
+
+	t1 := *t
+	Printf("%p %p \n", t, &t1)
+}
+
+func T45() {
+	type t1 struct {
+		i int64
+	}
+
+	t := &t1{
+		i: 3000,
+	}
+	var w sync.WaitGroup
+	w.Add(2500)
+	for k := 0; k < 2500; k++ {
+		go func() {
+			atomic.AddInt64(&t.i, -1)
+			w.Done()
+		}()
+	}
+
+	w.Wait()
+	Println(t.i)
 }
