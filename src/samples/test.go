@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/davecgh/go-spew/spew"
@@ -874,4 +875,203 @@ func T45() {
 
 	w.Wait()
 	Println(t.i)
+}
+
+func T46() {
+	type t struct {
+		i int
+	}
+
+	k := new(t)
+	k.i = 1
+
+	j := unsafe.Pointer(&k)
+	g := (*unsafe.Pointer)(j)
+	spew.Dump(j, k, g)
+}
+
+func T47() {
+	type t struct {
+		Data map[string]int
+	}
+
+	x := new(t)
+
+	s := `{"data":{"aaa":3,"bbb":3}}`
+
+	e := jsoniter.Unmarshal([]byte(s), x)
+	if e != nil {
+		Println(e)
+		return
+	}
+	spew.Dump(x)
+	return
+}
+
+func T48() {
+	//  open file
+	//file, err := os.OpenFile("file.log", os.O_RDONLY, 0600)
+	//if err != nil {
+	//log.Fatalln(err)
+
+	//}
+
+	//lines := make([]string, 10000)
+	//files := make([]bufio.Reader, 0)
+	//buff := bufio.NewReader(file)
+	//for i := 0; ; i++ {
+	//line, is, err := buff.ReadLine()
+	//if err != nil && err != io.EOF {
+	//// handle err
+	//}
+	//lines[i] = line
+
+	//// file end
+	//if err == io.EOF || !is {
+	//break
+	//}
+
+	//// write to file
+	//if i%10000 == 0 {
+	//sort.Strings(lines)
+	//// write file
+	//f, e := os.Create(time.Now().String())
+	//if e != nil {
+	//// handle err
+	//}
+	//for _, l := range lines {
+	//f.WriteString(l)
+	//}
+	//lines = lines[:0]
+	//files = append(files, bufio.NewReader(f))
+	//}
+	//}
+
+	//outFile := os.Create("outfile")
+	//// read every file first number to compare
+	//for {
+
+	//ls := make([]string, 0, len(files))
+	//for _, f := range files {
+	//line, is, err := f.ReadLine()
+	//if err == io.EOF || !is {
+	//continue
+	//}
+	//ls = append(ls, line)
+	//}
+	//sort.Strings(ls)
+
+	//if len(ls) > 0 {
+	//outFile.Write([]byte(ls[0]))
+	//outFile.Write('\n')
+	//}
+	//}
+}
+
+func T49() {
+	str := []string{"1", "32", "12", "5"}
+	itr := make([]int, len(str))
+	for i, v := range str {
+		ai, e := strconv.Atoi(v)
+		if e != nil {
+			//handle err
+			continue
+		}
+
+		itr[i] = ai
+	}
+
+	sort.Ints(itr)
+	Println(itr)
+}
+
+type adserver struct {
+	ip    string
+	timer *time.Timer
+}
+
+func (a *adserver) Start() {
+	select {
+	case <-a.timer.C:
+		Println(a.ip)
+	}
+}
+
+func T50() {
+	go func() {
+		for i := 0; i < 10; i++ {
+			time.Sleep(time.Second)
+			Println(i)
+		}
+	}()
+
+	m := make(map[string]*adserver)
+	a := new(adserver)
+	a.ip = "111"
+	a.timer = time.NewTimer(time.Second * 3)
+	go a.Start()
+
+	a1 := new(adserver)
+	a1.ip = "112"
+	a1.timer = time.NewTimer(time.Second * 5)
+	go a1.Start()
+
+	m[a.ip] = a
+	m[a1.ip] = a1
+
+	time.Sleep(time.Second * 2)
+	if v, ok := m["111"]; ok {
+		Println("reset")
+		v.timer.Reset(time.Second * 3)
+	}
+
+	time.Sleep(time.Second * 10)
+	//select {
+	//case <-a.timer.C:
+	//Println(a.ip)
+	//case <-a1.timer.C:
+	//Println(a1.ip)
+	//}
+}
+
+func T51() {
+	defer Println("defer")
+	for {
+		Println("hahah")
+		time.Sleep(time.Second)
+	}
+}
+
+func T52() {
+	type t struct {
+		i  int
+		s  string
+		ss []string
+	}
+
+	var t1 = new(t)
+	t2 := *t1
+	spew.Dump(t1, t2)
+}
+
+func T53() {
+	c := make(chan string)
+	go ping(c)
+	go print(c)
+
+	var input string
+	Scanln(&input)
+}
+
+func ping(c chan string) {
+	for i := 0; i < 10; i++ {
+		c <- strconv.Itoa(i)
+	}
+}
+
+func print(c chan string) {
+	for {
+		Println("receving:", <-c)
+		time.Sleep(time.Second)
+	}
 }
