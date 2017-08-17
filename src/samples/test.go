@@ -1063,15 +1063,181 @@ func T53() {
 	Scanln(&input)
 }
 
-func ping(c chan string) {
+func ping(c chan<- string) {
 	for i := 0; i < 10; i++ {
 		c <- strconv.Itoa(i)
 	}
 }
 
-func print(c chan string) {
+func print(c <-chan string) {
 	for {
 		Println("receving:", <-c)
 		time.Sleep(time.Second)
 	}
+}
+
+func T54() {
+	s := "abcdefg"
+	Println(s[1:3])
+}
+
+type t54 struct {
+	id string
+	n  int
+}
+
+type tSli []*t54
+
+func (t tSli) Len() int {
+	return len(t)
+}
+
+func (t tSli) Less(i, j int) bool {
+	return t[i].n < t[j].n
+}
+
+func (t tSli) Swap(i, j int) {
+	t[i], t[j] = t[j], t[i]
+}
+
+func T55() {
+	//t := tSli{&t54{"1", 3}, &t54{"2", 5}, &t54{"3", 2}}
+	t := make(tSli, 0)
+	t = append(t, &t54{"4", 1})
+	t = append(t, &t54{"1", 4})
+	t = append(t, &t54{"2", 3})
+	spew.Dump(t)
+	sort.Sort(t)
+	spew.Dump(t)
+}
+
+func T56() {
+	ch := make(chan int, 1)
+	for i := 0; i < 10; i++ {
+		select {
+		case n := <-ch:
+			Println(n)
+		case ch <- i:
+		}
+	}
+}
+
+func T57() {
+	type T struct {
+		i int
+		_ struct{}
+		j int32
+	}
+
+	t := new(T)
+	Println(unsafe.Sizeof(*t))
+
+	Printf("%p %p %p", t, &t.i, &t.j)
+}
+
+func T58() {
+	type T struct {
+		a byte
+		b int16
+		c int32
+		d []int
+	}
+
+	t := T{}
+	typ := reflect.TypeOf(t)
+	Println(typ.Size())
+
+	n := typ.NumField()
+	for i := 0; i < n; i++ {
+		f := typ.Field(i)
+		Println(f.Name, f.Offset, f.Type.Size(), f.Type.Align())
+	}
+}
+
+func T59() {
+	ch := make(chan int, 1)
+	ch <- 5
+	Println(<-ch)
+	close(ch)
+
+	ch1 := make(chan int, 0)
+	ch1 <- 5
+	Println(<-ch1)
+}
+
+func T60() {
+	m := make([]int, 0, 10)
+	Printf("%p \n", m)
+	for i := 0; i < 10; i++ {
+		m = append(m, 3)
+		Printf("%d : %p \n", i, &m[i])
+	}
+	i := 3
+	Printf("i : %p \n", &i)
+}
+
+func T61() {
+	logs.Debug("debug")
+	logs.Warn("warn")
+	logs.Warning("Warning")
+	logs.Info("info")
+	logs.Error("error")
+}
+
+func send(c chan<- int) {
+	i := 0
+	for {
+		i++
+		if i == 10 {
+			break
+		}
+		Println("Send before", i)
+		c <- i
+		Println("                  Send after", i)
+	}
+}
+
+func recieve(c <-chan int) {
+	var i int
+	for {
+		Println("                  Recieve before", i)
+		i = <-c
+		Println("Recieve after", i)
+	}
+}
+
+func T62() {
+	ch := make(chan int)
+	go send(ch)
+	go recieve(ch)
+
+	var s string
+	Scanln(&s)
+}
+
+func T63() {
+	const (
+		a = 3
+		b
+		c = iota
+		d
+		e = 5
+		f
+		g = iota
+	)
+
+	Println(a, b, c, d, e, f, g)
+}
+
+func T64() {
+	m := make(map[string]interface{})
+	s := `{"age":5, "name":"goudan"}`
+
+	e := jsoniter.UnmarshalFromString(s, &m)
+	//e := json.Unmarshal([]byte(s), &m)
+	if e != nil {
+		Println(e)
+		return
+	}
+	spew.Dump(m)
 }
