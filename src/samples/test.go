@@ -3,7 +3,9 @@ package samples
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/md5"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -1137,20 +1139,19 @@ func T57() {
 
 func T58() {
 	type T struct {
-		a byte
-		b int16
-		c int32
-		d []int
+		A byte  `json:"a"`
+		B int16 `json:"b"`
+		C int32 `json:"c"`
+		D []int `json:"d"`
 	}
 
 	t := T{}
 	typ := reflect.TypeOf(t)
-	Println(typ.Size())
 
 	n := typ.NumField()
 	for i := 0; i < n; i++ {
 		f := typ.Field(i)
-		Println(f.Name, f.Offset, f.Type.Size(), f.Type.Align())
+		Println(f.Name, f.Offset, f.Type.Size(), f.Type.Align(), f.Type.Kind())
 	}
 }
 
@@ -1240,4 +1241,275 @@ func T64() {
 		return
 	}
 	spew.Dump(m)
+}
+
+func T65() {
+	conn, err := net.Dial("tcp", "127.0.0.1:3563")
+	if err != nil {
+		panic(err)
+
+	}
+
+	// Hello 消息（JSON 格式）
+	// 对应游戏服务器 Hello 消息结构体
+	data := []byte(`{"Hello":{"Name":"leaf","Content":"Nice to meet you!"}}`)
+
+	// len + data
+	m := make([]byte, 2)
+	m1 := make([]byte, 2)
+
+	// 默认使用大端序
+	binary.BigEndian.PutUint16(m, uint16(len(data)))
+	binary.LittleEndian.PutUint16(m1, uint16(len(data)))
+	Println(m, "|", m1)
+
+	copy(m[2:], data)
+
+	// 发送消息
+	conn.Write(m)
+	for i, v := range m {
+		Println(i, string(v))
+	}
+
+	time.Sleep(time.Second * 5)
+}
+
+func T66() {
+	//var stringBuf = sync.Pool{
+	//New: func() interface{} {
+	//return nil
+	//},
+	//}
+}
+
+func T67() {
+	var s string
+	for i := 0; i < 1000; i++ {
+		s = s + "a"
+	}
+}
+
+func T68() {
+	var s = bytes.NewBuffer(nil)
+	for i := 0; i < 1000; i++ {
+		s.WriteString("a")
+	}
+}
+
+func T69() {
+	m := &sync.Map{}
+	var w sync.WaitGroup
+	var n int
+
+	w.Add(10000)
+	for i := 0; i < 10000; i++ {
+		go func() {
+			defer w.Done()
+			m.Store("one", 1)
+
+			if v, ok := m.Load("one"); ok {
+				n += v.(int)
+			}
+		}()
+	}
+	w.Wait()
+	Println(n)
+}
+
+func T70() {
+	m := make(map[string]int)
+	var w sync.WaitGroup
+	var mu sync.Mutex
+	var n int
+
+	w.Add(10000)
+	for i := 0; i < 10000; i++ {
+		go func() {
+			defer w.Done()
+
+			mu.Lock()
+			defer mu.Unlock()
+			m["one"] = 1
+
+			if j, ok := m["one"]; ok {
+				n += j
+			}
+		}()
+
+	}
+	w.Wait()
+	Println(n)
+}
+
+func T71() {
+	x := 1
+	y := 12
+	for i, j := x, y; i <= 14 && j >= 0; {
+		Println(i, j)
+	}
+}
+
+func T72() {
+	b := bytes.NewBuffer(nil)
+	data := []byte("1234567890")
+	n, e := b.Write(data)
+	if e != nil {
+		Println(e)
+	}
+
+	r := b.Next(4)
+	Println(n, r, data, b.String(), b.Len())
+}
+
+// 模拟一个最小执行时间的阻塞函数
+func inc(a int) int {
+	res := a + 1                // 虽然我只做了一次简单的 +1 的运算,
+	time.Sleep(1 * time.Second) // 但是由于我的机器指令集中没有这条指令,
+	// 所以在我执行了 1000000000 条机器指令, 续了 1s 之后, 我才终于得到结果。B)
+	return res
+}
+
+// 向外部提供的阻塞接口
+// 计算 a + b, 注意 a, b 均不能为负
+// 如果计算被中断, 则返回 -1
+func Add(ctx context.Context, a, b int) int {
+	res := 0
+	for i := 0; i < a; i++ {
+		res = inc(res)
+		select {
+		case <-ctx.Done():
+			Println("=== a Done")
+			return -1
+		default:
+		}
+	}
+	for i := 0; i < b; i++ {
+		res = inc(res)
+		select {
+		case <-ctx.Done():
+			Println("=== b Done")
+			return -1
+		default:
+		}
+	}
+	return res
+}
+
+func T73() {
+	{
+		//使用开放的 API 计算 a+b
+		a := 3
+		b := 2
+		timeout := 2 * time.Second
+		ctx, _ := context.WithTimeout(context.Background(), timeout)
+		res := Add(ctx, a, b)
+		Printf("Compute: %d+%d, result: %d\n", a, b, res)
+	}
+	{
+		// 手动取消
+		a := 3
+		b := 2
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			time.Sleep(2 * time.Second)
+			cancel() // 在调用处主动取消
+		}()
+		res := Add(ctx, a, b)
+		Printf("Compute: %d+%d, result: %d\n", a, b, res)
+	}
+}
+
+func T74() {
+	s := "site_uv_report"
+	n := strings.Index(s, "_")
+	s, s1 := s[:n+1], s[n+1:]
+	s = strings.Replace(s, "_", "_group_", -1)
+	Println(s + s1)
+}
+
+type SafeInt struct {
+	sync.Mutex
+	Num int
+}
+
+func T75() {
+	count := SafeInt{}
+	done := make(chan bool)
+
+	for i := 0; i < 10; i++ {
+		go func(i int) {
+			count.Lock()
+			count.Num += i
+			count.Unlock()
+			Print(count.Num, i, ", ")
+			//Print(count.Num, ", ")
+			done <- true
+		}(i)
+	}
+
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+}
+
+func T76() {
+	data := [...]int{1, 2, 3, 4, 5}
+	for i := range data {
+		Println(&data[i])
+	}
+
+	Println("-------")
+	sli := data[:2:2]
+	for i := range sli {
+		Println(&sli[i])
+	}
+	Println("-------")
+
+	sli = append(sli, 100)
+	for i := range sli {
+		Println(&sli[i])
+	}
+
+	Println("-------")
+	Println(data, sli, cap(sli))
+}
+
+func T77() {
+LOOP:
+	for i := 0; i < 10; i++ {
+		switch i {
+		case 3:
+			Println(i)
+			break LOOP
+		case 4:
+			Println(i)
+		}
+	}
+
+	Println("end")
+}
+
+func T78() {
+	// You can edit this code!
+	// Click here and start typing.
+	var str = "dsf士大夫方法啊啊aa"
+
+	Println(strings.Index(str, "方法"))
+
+}
+
+func T79() {
+	m := make(map[int]*int)
+	a := 1
+	b := 2
+
+	m[1] = &a
+	m[2] = &b
+	for i, v := range m {
+		Println(i, v, &(*v), m[i], &a, &b)
+	}
+}
+
+func T80() {
+	Println("Hello World!")
 }
